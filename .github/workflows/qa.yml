@@ -1,0 +1,72 @@
+name: QA E2E + API
+
+# Manual: a suite E2E depende de um site externo (ge.globo.com) e nao deve
+# bloquear o CI de cada push.
+on:
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    name: Playwright E2E (ge.globo.com)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Instalar navegadores do Playwright
+        run: pnpm --filter @desafio/qa exec playwright install --with-deps chromium
+
+      - name: Rodar suite E2E
+        run: pnpm test:qa:e2e
+
+      - name: Publicar relatorio do Playwright (E2E)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-e2e
+          path: apps/qa/playwright-report
+          retention-days: 7
+
+  api:
+    name: Playwright API (ServeRest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Instalar navegadores do Playwright
+        run: pnpm --filter @desafio/qa exec playwright install --with-deps chromium
+
+      - name: Subir ServeRest local
+        run: |
+          npx --yes serverest@latest &
+          timeout 60 bash -c 'until curl -sf http://localhost:3000/usuarios > /dev/null; do sleep 2; done'
+
+      - name: Rodar suite de API
+        run: pnpm test:qa:api
+
+      - name: Publicar relatorio do Playwright (API)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-api
+          path: apps/qa/playwright-report
+          retention-days: 7
