@@ -1,0 +1,35 @@
+{
+    "compilerOptions":  {
+                            "allowSyntheticDefaultImports":  true,
+                            "baseUrl":  ".",
+                            "declaration":  true,
+                            "declarationMap":  true,
+                            "esModuleInterop":  true,
+                            "forceConsistentCasingInFileNames":  true,
+                            "isolatedModules":  true,
+                            "module":  "ESNext",
+                            "moduleResolution":  "Bundler",
+                            "noFallthroughCasesInSwitch":  true,
+                            "noImplicitOverride":  true,
+                            "noImplicitReturns":  true,
+                            "noUncheckedIndexedAccess":  true,
+                            "paths":  {
+                                          "@desafio/ai-agent":  [
+                                                                    "packages/ai-agent/src/index.ts"
+                                                                ],
+                                          "@desafio/domain":  [
+                                                                  "packages/domain/src/index.ts"
+                                                              ],
+                                          "@desafio/shared":  [
+                                                                  "packages/shared/src/index.ts"
+                                                              ],
+                                          "@desafio/testing":  [
+                                                                   "packages/testing/src/index.ts"
+                                                               ]
+                                      },
+                            "resolveJsonModule":  true,
+                            "skipLibCheck":  true,
+                            "strict":  true,
+                            "target":  "ES2022"
+                        }
+}
