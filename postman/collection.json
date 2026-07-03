@@ -1,0 +1,566 @@
+{
+  "info": {
+    "name": "Desafio Winnin API",
+    "description": "Colecao completa da API: observabilidade (health/metrics), AI/RAG REST (threads/ask) e GraphQL de pedidos (usuarios, produtos e ordens) com cenarios de sucesso e de erro. Importe junto com environment.json e execute na ordem para popular as variaveis threadId/userId/productId automaticamente.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Observabilidade",
+      "item": [
+        {
+          "name": "Health check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('payload de saude', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.status).to.eql('ok');",
+                  "  pm.expect(body).to.have.property('timestamp');",
+                  "  pm.expect(body).to.have.property('uptimeSeconds');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health"
+          }
+        },
+        {
+          "name": "Metricas Prometheus",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('formato Prometheus', () => {",
+                  "  pm.expect(pm.response.text()).to.include('api_requests_total');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/metrics"
+          }
+        },
+        {
+          "name": "OpenAPI (Swagger JSON)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('OpenAPI valido', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body).to.have.property('openapi');",
+                  "  pm.expect(body.paths).to.have.property('/health');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/docs-json"
+          }
+        }
+      ]
+    },
+    {
+      "name": "AI RAG - Threads",
+      "item": [
+        {
+          "name": "Criar thread",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('retorna threadId', () => pm.expect(body.threadId).to.be.a('string'));",
+                  "pm.environment.set('threadId', body.threadId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/threads"
+          }
+        },
+        {
+          "name": "Listar threads",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('lista de threads', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/threads"
+          }
+        },
+        {
+          "name": "Enviar mensagem na thread",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('resposta e fontes', () => {",
+                  "  pm.expect(body.response).to.be.a('string');",
+                  "  pm.expect(body.sources).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Compare ReAct e Toolformer\"\n}"
+            },
+            "url": "{{baseUrl}}/threads/{{threadId}}/messages"
+          }
+        },
+        {
+          "name": "Historico da thread",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('historico com user e assistant', () => {",
+                  "  const roles = pm.response.json().map((m) => m.role);",
+                  "  pm.expect(roles).to.include('user');",
+                  "  pm.expect(roles).to.include('assistant');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/threads/{{threadId}}/messages"
+          }
+        },
+        {
+          "name": "Thread inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/threads/nao-existe/messages"
+          }
+        },
+        {
+          "name": "Ask (compatibilidade)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('cria thread propria', () => pm.expect(pm.response.json().threadId).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"O que e RAG?\"\n}"
+            },
+            "url": "{{baseUrl}}/ask"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pedidos GraphQL - Fluxo feliz",
+      "item": [
+        {
+          "name": "Criar usuario",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('usuario criado', () => pm.expect(body.data.createUser.id).to.be.a('string'));",
+                  "pm.environment.set('userId', body.data.createUser.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation CreateUser($input: CreateUserInput!) {\n  createUser(input: $input) {\n    id\n    name\n    email\n    createdAt\n  }\n}",
+                "variables": "{\n  \"input\": {\n    \"name\": \"Maria Silva\",\n    \"email\": \"maria+{{$randomInt}}@example.com\"\n  }\n}"
+              }
+            },
+            "url": "{{baseUrl}}/graphql"
+          }
+        },
+        {
+          "name": "Criar produto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('produto criado', () => pm.expect(body.data.createProduct.id).to.be.a('string'));",
+                  "pm.environment.set('productId', body.data.createProduct.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation CreateProduct($input: CreateProductInput!) {\n  createProduct(input: $input) {\n    id\n    name\n    price\n    stock\n    createdAt\n  }\n}",
+                "variables": "{\n  \"input\": {\n    \"name\": \"Teclado mecanico\",\n    \"price\": 150,\n    \"stock\": 10\n  }\n}"
+              }
+            },
+            "url": "{{baseUrl}}/graphql"
+          }
+        },
+        {
+          "name": "Criar pedido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('pedido criado com total', () => {",
+                  "  pm.expect(body.data.createOrder.id).to.be.a('string');",
+                  "  pm.expect(body.data.createOrder.total).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation CreateOrder($input: CreateOrderInput!) {\n  createOrder(input: $input) {\n    id\n    total\n    createdAt\n    user {\n      id\n      name\n    }\n    items {\n      quantity\n      price\n      product {\n        id\n        name\n        stock\n      }\n    }\n  }\n}",
+                "variables": "{\n  \"input\": {\n    \"userId\": \"{{userId}}\",\n    \"items\": [\n      { \"productId\": \"{{productId}}\", \"quantity\": 2 }\n    ]\n  }\n}"
+              }
+            },
+            "url": "{{baseUrl}}/graphql"
+          }
+        },
+        {
+          "name": "Listar usuarios com pedidos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('usuarios com campo orders', () => {",
+                  "  const users = pm.response.json().data.users;",
+                  "  pm.expect(users).to.be.an('array');",
+                  "  if (users.length > 0) { pm.expect(users[0]).to.have.property('orders'); }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query Users {\n  users {\n    id\n    name\n    email\n    createdAt\n    orders {\n      id\n      total\n      createdAt\n    }\n  }\n}",
+                "variables": ""
+              }
+            },
+            "url": "{{baseUrl}}/graphql"
+          }
+        },
+        {
+          "name": "Listar produtos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('lista de produtos', () => pm.expect(pm.response.json().data.products).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query Products {\n  products {\n    id\n    name\n    price\n    stock\n    createdAt\n  }\n}",
+                "variables": ""
+              }
+            },
+            "url": "{{baseUrl}}/graphql"
+          }
+        },
+        {
+          "name": "Listar pedidos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('lista de pedidos', () => pm.expect(pm.response.json().data.orders).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query Orders {\n  orders {\n    id\n    total\n    createdAt\n    user {\n      id\n      name\n      email\n    }\n    items {\n      quantity\n      price\n      product {\n        id\n        name\n        price\n        stock\n      }\n    }\n  }\n}",
+                "variables": ""
+              }
+            },
+            "url": "{{baseUrl}}/graphql"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pedidos GraphQL - Cenarios de erro",
+      "item": [
+        {
+          "name": "Usuario invalido (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('erro de validacao', () => {",
+                  "  const errors = pm.response.json().errors;",
+                  "  pm.expect(errors[0].message).to.include('User name is required');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation {\n  createUser(input: { name: \" \", email: \"invalido\" }) {\n    id\n  }\n}",
+                "variables": ""
+              }
+            },
+            "url": "{{baseUrl}}/graphql"
+          }
+        },
+        {
+          "name": "Email duplicado (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('conflito de email', () => {",
+                  "  const errors = pm.response.json().errors;",
+                  "  pm.expect(errors[0].message).to.include('already in use');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation {\n  first: createUser(input: { name: \"Dup\", email: \"dup@example.com\" }) {\n    id\n  }\n  second: createUser(input: { name: \"Dup\", email: \"DUP@example.com\" }) {\n    id\n  }\n}",
+                "variables": ""
+              }
+            },
+            "url": "{{baseUrl}}/graphql"
+          }
+        },
+        {
+          "name": "Produto invalido (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('erro de validacao de produto', () => {",
+                  "  const errors = pm.response.json().errors;",
+                  "  pm.expect(errors[0].message).to.include('Product price must be greater than zero');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation {\n  createProduct(input: { name: \"\", price: -5, stock: -1 }) {\n    id\n  }\n}",
+                "variables": ""
+              }
+            },
+            "url": "{{baseUrl}}/graphql"
+          }
+        },
+        {
+          "name": "Pedido para usuario inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('usuario nao encontrado', () => {",
+                  "  const errors = pm.response.json().errors;",
+                  "  pm.expect(errors[0].message).to.include('was not found');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation {\n  createOrder(input: { userId: \"nao-existe\", items: [{ productId: \"product-1\", quantity: 1 }] }) {\n    id\n  }\n}",
+                "variables": ""
+              }
+            },
+            "url": "{{baseUrl}}/graphql"
+          }
+        },
+        {
+          "name": "Estoque insuficiente (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('erro de estoque', () => {",
+                  "  const errors = pm.response.json().errors;",
+                  "  pm.expect(errors[0].message).to.include('units available');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation CreateOrder($input: CreateOrderInput!) {\n  createOrder(input: $input) {\n    id\n  }\n}",
+                "variables": "{\n  \"input\": {\n    \"userId\": \"{{userId}}\",\n    \"items\": [\n      { \"productId\": \"{{productId}}\", \"quantity\": 9999 }\n    ]\n  }\n}"
+              }
+            },
+            "url": "{{baseUrl}}/graphql"
+          }
+        },
+        {
+          "name": "Quantidade acima do teto (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('teto de quantidade', () => {",
+                  "  const errors = pm.response.json().errors;",
+                  "  pm.expect(errors[0].message).to.include('between 1 and 10000');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation CreateOrder($input: CreateOrderInput!) {\n  createOrder(input: $input) {\n    id\n  }\n}",
+                "variables": "{\n  \"input\": {\n    \"userId\": \"{{userId}}\",\n    \"items\": [\n      { \"productId\": \"{{productId}}\", \"quantity\": 10001 }\n    ]\n  }\n}"
+              }
+            },
+            "url": "{{baseUrl}}/graphql"
+          }
+        }
+      ]
+    }
+  ]
+}
