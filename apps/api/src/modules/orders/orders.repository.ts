@@ -1,10 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import type { Order, OrderWriterPort } from "@desafio/domain";
+import type { OrdersRepositoryPort } from "./repository.ports";
 
 export type OrdersSnapshot = ReadonlyMap<string, Order>;
 
 @Injectable()
-export class OrdersRepository implements OrderWriterPort {
+export class OrdersRepository implements OrderWriterPort, OrdersRepositoryPort {
   private orders = new Map<string, Order>();
   private sequence = 1;
 

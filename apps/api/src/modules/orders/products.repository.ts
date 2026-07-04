@@ -1,18 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import type { ProductInventoryPort, ProductSnapshot, StockDebit } from "@desafio/domain";
-
-export interface StoredProduct {
-  readonly id: string;
-  readonly name: string;
-  readonly priceCents: number;
-  readonly stock: number;
-  readonly createdAt: Date;
-}
+import type { ProductsRepositoryPort, StoredProduct } from "./repository.ports";
 
 export type ProductsSnapshot = ReadonlyMap<string, StoredProduct>;
 
 @Injectable()
-export class ProductsRepository implements ProductInventoryPort {
+export class ProductsRepository implements ProductInventoryPort, ProductsRepositoryPort {
   private products = new Map<string, StoredProduct>();
   private sequence = 1;
 

@@ -5,13 +5,22 @@ import { OrdersRepository } from "./orders.repository";
 import { OrdersResolver } from "./orders.resolver";
 import { OrdersService } from "./orders.service";
 import { ProductsRepository } from "./products.repository";
+import { ORDERS_REPOSITORY, PRODUCTS_REPOSITORY, USERS_REPOSITORY } from "./repository.ports";
 import { UsersRepository } from "./users.repository";
 
 @Module({
   providers: [
+    // Classes concretas: usadas pela OrderUnitOfWork (precisa de snapshot/restore,
+    // que nao faz parte da porta publica consumida pelo OrdersService).
     UsersRepository,
     ProductsRepository,
     OrdersRepository,
+    // Tokens de porta: o OrdersService depende so destes, nunca das classes
+    // acima. Trocar a implementacao in-memory por Postgres exige mudar apenas
+    // o useExisting/useClass abaixo, sem tocar em OrdersService.
+    { provide: USERS_REPOSITORY, useExisting: UsersRepository },
+    { provide: PRODUCTS_REPOSITORY, useExisting: ProductsRepository },
+    { provide: ORDERS_REPOSITORY, useExisting: OrdersRepository },
     OrderUnitOfWork,
     {
       inject: [OrderUnitOfWork],

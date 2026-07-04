@@ -114,6 +114,27 @@ via `ProductsRepository`, forca uma falha depois, e confirma que o estoque volta
 valor original — cobrindo o cenario de "falha apos escrita parcial" que so era testado
 contra um duplo de teste no dominio, nunca contra o repositorio de producao.
 
+### DIP: OrdersService depende de portas, nao das classes concretas
+
+`OrdersService` nao importa mais `UsersRepository`/`ProductsRepository`/`OrdersRepository`
+diretamente — depende de `UsersRepositoryPort`/`ProductsRepositoryPort`/
+`OrdersRepositoryPort` (`repository.ports.ts`), injetadas por token
+(`@Inject(USERS_REPOSITORY)` etc.). `OrdersModule` registra as classes concretas
+normalmente (a `OrderUnitOfWork` continua dependendo delas diretamente, pois precisa dos
+metodos internos `snapshot`/`restore` que nao fazem parte da porta publica) e cria um
+alias por token com `useExisting`, apontando para a mesma instancia — sem duplicar
+estado.
+
+Um teste novo (`orders.service.spec.ts`, "depends only on the repository ports")
+constroi o service com fakes minimos que satisfazem as portas mas nao sao instancias
+das classes concretas — antes desta mudanca isso nem compilava (TypeScript rejeitava o
+fake por faltar os campos privados de `UsersRepository`), confirmando que a dependencia
+de fato virou uma abstracao.
+
+Trade-off: trocar a implementacao in-memory por um adapter Postgres exigiria apenas
+mudar o `useExisting`/`useClass` de cada token em `OrdersModule` — nenhuma linha de
+`OrdersService` precisaria mudar.
+
 Trade-off: a normalizacao de texto (trim de nome/id) que antes acontecia dentro do
 service agora acontece no `@Transform` do DTO, antes da validacao rodar — o service
 recebe o dado ja limpo. Isso move a responsabilidade de "o dado esta bem formado" para a

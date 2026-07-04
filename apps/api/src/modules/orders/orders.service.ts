@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException
 } from "@nestjs/common";
@@ -19,16 +20,23 @@ import type {
   ProductModel,
   UserModel
 } from "./order.models";
-import { OrdersRepository } from "./orders.repository";
-import { ProductsRepository, type StoredProduct } from "./products.repository";
-import { UsersRepository, type StoredUser } from "./users.repository";
+import {
+  ORDERS_REPOSITORY,
+  PRODUCTS_REPOSITORY,
+  USERS_REPOSITORY,
+  type OrdersRepositoryPort,
+  type ProductsRepositoryPort,
+  type StoredProduct,
+  type StoredUser,
+  type UsersRepositoryPort
+} from "./repository.ports";
 
 @Injectable()
 export class OrdersService {
   public constructor(
-    private readonly users: UsersRepository,
-    private readonly products: ProductsRepository,
-    private readonly orders: OrdersRepository,
+    @Inject(USERS_REPOSITORY) private readonly users: UsersRepositoryPort,
+    @Inject(PRODUCTS_REPOSITORY) private readonly products: ProductsRepositoryPort,
+    @Inject(ORDERS_REPOSITORY) private readonly orders: OrdersRepositoryPort,
     private readonly createOrderUseCase: CreateOrderUseCase
   ) {}
 

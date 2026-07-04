@@ -5,6 +5,13 @@ import { OrderUnitOfWork } from "./order-unit-of-work";
 import { OrdersRepository } from "./orders.repository";
 import { OrdersService } from "./orders.service";
 import { ProductsRepository } from "./products.repository";
+import type {
+  OrdersRepositoryPort,
+  ProductsRepositoryPort,
+  StoredProduct,
+  StoredUser,
+  UsersRepositoryPort
+} from "./repository.ports";
 import { UsersRepository } from "./users.repository";
 
 function createService(): OrdersService {
@@ -150,6 +157,49 @@ describe("OrdersService", () => {
         userId: user.id
       })
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it("depends only on the repository ports, not on their concrete classes", () => {
+    // Fakes minimos que satisfazem as portas mas NAO sao instancias de
+    // UsersRepository/ProductsRepository/OrdersRepository (sem os campos
+    // privados delas) - so compila se OrdersService aceitar a interface.
+    const fakeUser: StoredUser = {
+      createdAt: new Date("2026-07-03T00:00:00.000Z"),
+      email: "fake@example.com",
+      id: "user-1",
+      name: "Fake"
+    };
+    const users: UsersRepositoryPort = {
+      findUserById: (userId) => (userId === fakeUser.id ? fakeUser : undefined),
+      hasUserWithEmail: () => false,
+      listUsers: () => [fakeUser],
+      saveUser: () => fakeUser
+    };
+    const products: ProductsRepositoryPort = {
+      findProductById: () => undefined,
+      listProducts: () => [],
+      saveProduct: (input): StoredProduct => ({
+        createdAt: new Date("2026-07-03T00:00:00.000Z"),
+        id: "product-1",
+        ...input
+      })
+    };
+    const orders: OrdersRepositoryPort = {
+      listOrders: () => [],
+      listOrdersByUserId: () => []
+    };
+    const service = new OrdersService(
+      users,
+      products,
+      orders,
+      new CreateOrderUseCase(new OrderUnitOfWork(new ProductsRepository(), new OrdersRepository()))
+    );
+
+    expect(service.listUsers()).toEqual([
+      { createdAt: fakeUser.createdAt, email: fakeUser.email, id: fakeUser.id, name: fakeUser.name }
+    ]);
+    expect(service.listProducts()).toEqual([]);
+    expect(service.listOrders()).toEqual([]);
   });
 
   it("rethrows unknown errors from the unit of work untouched", async () => {

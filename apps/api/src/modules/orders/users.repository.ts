@@ -1,14 +1,8 @@
 import { Injectable } from "@nestjs/common";
-
-export interface StoredUser {
-  readonly id: string;
-  readonly name: string;
-  readonly email: string;
-  readonly createdAt: Date;
-}
+import type { StoredUser, UsersRepositoryPort } from "./repository.ports";
 
 @Injectable()
-export class UsersRepository {
+export class UsersRepository implements UsersRepositoryPort {
   private readonly users = new Map<string, StoredUser>();
   private sequence = 1;
 
