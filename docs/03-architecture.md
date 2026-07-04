@@ -135,6 +135,25 @@ Trade-off: trocar a implementacao in-memory por um adapter Postgres exigiria ape
 mudar o `useExisting`/`useClass` de cada token em `OrdersModule` — nenhuma linha de
 `OrdersService` precisaria mudar.
 
+### ExceptionFilter para traduzir erros de dominio
+
+`OrdersService.createOrder` nao tem mais `try/catch` nem `translateDomainError` —
+qualquer `DomainError` lancado por `CreateOrderUseCase` sobe intacto e e traduzido uma
+unica vez por `DomainErrorFilter` (`@Catch(DomainError)`, registrado globalmente como
+`APP_FILTER` em `OrdersModule`), que mapeia `ProductNotFoundError` para 404,
+`InsufficientStockError` para 409 e qualquer outro `DomainError` para 400. Antes, cada
+service que quisesse tratar erros de dominio precisaria reimplementar essa cadeia de
+`instanceof`; agora e uma preocupacao transversal, do mesmo jeito que o
+`LoggingInterceptor` ja e (ver `ObservabilityModule`).
+
+Trade-off: os testes de `OrdersService` que antes verificavam a traducao para
+`BadRequestException`/`ConflictException`/`NotFoundException` agora verificam que o
+erro de dominio original (`ValidationDomainError`/`InsufficientStockError`/
+`ProductNotFoundError`) sobe sem alteracao — a traducao em si e testada uma unica vez em
+`domain-error.filter.spec.ts`. Verificado ao vivo (requisicoes GraphQL reais) que o
+comportamento observavel pelo cliente (status HTTP, mensagem) continua identico ao
+anterior.
+
 Trade-off: a normalizacao de texto (trim de nome/id) que antes acontecia dentro do
 service agora acontece no `@Transform` do DTO, antes da validacao rodar — o service
 recebe o dado ja limpo. Isso move a responsabilidade de "o dado esta bem formado" para a

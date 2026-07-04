@@ -1,5 +1,11 @@
-import { BadRequestException, ConflictException, NotFoundException } from "@nestjs/common";
-import { CreateOrderUseCase, type OrderUnitOfWorkPort } from "@desafio/domain";
+import { ConflictException } from "@nestjs/common";
+import {
+  CreateOrderUseCase,
+  InsufficientStockError,
+  ProductNotFoundError,
+  ValidationDomainError,
+  type OrderUnitOfWorkPort
+} from "@desafio/domain";
 import { describe, expect, it } from "vitest";
 import { OrderUnitOfWork } from "./order-unit-of-work";
 import { OrdersRepository } from "./orders.repository";
@@ -90,6 +96,9 @@ describe("OrdersService", () => {
   });
 
   it("rejects orders with missing products and keeps product stock unchanged", async () => {
+    // A traducao para NotFoundException e responsabilidade do DomainErrorFilter
+    // global (ver domain-error.filter.spec.ts); aqui o service so precisa
+    // deixar o erro de dominio passar intacto.
     const service = createService();
     const user = service.createUser({
       email: "user@example.com",
@@ -101,7 +110,7 @@ describe("OrdersService", () => {
         items: [{ productId: "missing", quantity: 1 }],
         userId: user.id
       })
-    ).rejects.toThrow(NotFoundException);
+    ).rejects.toThrow(ProductNotFoundError);
 
     expect(service.listProducts()).toEqual([]);
   });
@@ -139,12 +148,12 @@ describe("OrdersService", () => {
         items: [{ productId: product.id, quantity: 2 }],
         userId: user.id
       })
-    ).rejects.toThrow(ConflictException);
+    ).rejects.toThrow(InsufficientStockError);
 
     expect(service.listProducts()[0]?.stock).toBe(1);
   });
 
-  it("translates domain validation errors into bad requests", async () => {
+  it("propagates domain validation errors unchanged", async () => {
     const service = createService();
     const user = service.createUser({
       email: "user@example.com",
@@ -156,7 +165,7 @@ describe("OrdersService", () => {
         items: [],
         userId: user.id
       })
-    ).rejects.toThrow(BadRequestException);
+    ).rejects.toThrow(ValidationDomainError);
   });
 
   it("depends only on the repository ports, not on their concrete classes", () => {

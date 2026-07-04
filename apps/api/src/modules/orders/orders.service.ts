@@ -1,17 +1,5 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Inject,
-  Injectable,
-  NotFoundException
-} from "@nestjs/common";
-import {
-  CreateOrderUseCase,
-  DomainError,
-  InsufficientStockError,
-  type Order,
-  ProductNotFoundError
-} from "@desafio/domain";
+import { ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { CreateOrderUseCase, type Order } from "@desafio/domain";
 import type {
   CreateOrderInput,
   CreateProductInput,
@@ -86,28 +74,10 @@ export class OrdersService {
       throw new NotFoundException(`User ${input.userId} was not found.`);
     }
 
-    try {
-      const order = await this.createOrderUseCase.execute(input);
-      return this.toOrderModel(order);
-    } catch (error) {
-      throw this.translateDomainError(error);
-    }
-  }
-
-  private translateDomainError(error: unknown): unknown {
-    if (error instanceof ProductNotFoundError) {
-      return new NotFoundException(error.message);
-    }
-
-    if (error instanceof InsufficientStockError) {
-      return new ConflictException(error.message);
-    }
-
-    if (error instanceof DomainError) {
-      return new BadRequestException(error.message);
-    }
-
-    return error;
+    // Erros de dominio (estoque insuficiente, produto inexistente etc.) sao
+    // traduzidos globalmente pelo DomainErrorFilter (APP_FILTER), nao aqui.
+    const order = await this.createOrderUseCase.execute(input);
+    return this.toOrderModel(order);
   }
 
   private toUserModel(user: StoredUser): UserModel {
