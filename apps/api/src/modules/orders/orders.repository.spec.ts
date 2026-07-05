@@ -30,14 +30,20 @@ describe("OrdersRepository", () => {
     expect(repository.listOrders()).toEqual([order]);
   });
 
-  it("lists orders filtered by user id", async () => {
+  it("groups orders by user id in a single pass for a batch of ids", async () => {
     const repository = new OrdersRepository();
     const firstOrder = buildOrder({ id: "order-1", userId: "user-1" });
     const secondOrder = buildOrder({ id: "order-2", userId: "user-2" });
+    const thirdOrder = buildOrder({ id: "order-3", userId: "user-1" });
     await repository.save(firstOrder);
     await repository.save(secondOrder);
+    await repository.save(thirdOrder);
 
-    expect(repository.listOrdersByUserId("user-1")).toEqual([firstOrder]);
+    const grouped = repository.listOrdersByUserIds(["user-1", "user-2", "user-3"]);
+
+    expect(grouped.get("user-1")).toEqual([firstOrder, thirdOrder]);
+    expect(grouped.get("user-2")).toEqual([secondOrder]);
+    expect(grouped.get("user-3")).toBeUndefined();
   });
 
   describe("snapshot and restore", () => {

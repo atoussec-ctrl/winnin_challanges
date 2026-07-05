@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { APP_FILTER } from "@nestjs/core";
 import { CreateOrderUseCase } from "@desafio/domain";
 import { DomainErrorFilter } from "./domain-error.filter";
+import { OrdersByUserLoader } from "./loaders/orders-by-user.loader";
 import { OrderUnitOfWork } from "./order-unit-of-work";
 import { OrdersRepository } from "./orders.repository";
 import { OrdersResolver } from "./orders.resolver";
@@ -31,6 +32,7 @@ import { UsersRepository } from "./users.repository";
     },
     // Global: traduz qualquer DomainError lancado por qualquer resolver/controller.
     { provide: APP_FILTER, useClass: DomainErrorFilter },
+    OrdersByUserLoader,
     OrdersResolver,
     OrdersService
   ]

@@ -38,7 +38,7 @@ export interface ProductsRepositoryPort {
 
 export interface OrdersRepositoryPort {
   listOrders(): readonly Order[];
-  listOrdersByUserId(userId: string): readonly Order[];
+  listOrdersByUserIds(userIds: readonly string[]): ReadonlyMap<string, readonly Order[]>;
 }
 
 export const USERS_REPOSITORY = Symbol("USERS_REPOSITORY");

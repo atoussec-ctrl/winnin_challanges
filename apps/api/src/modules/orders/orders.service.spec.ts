@@ -71,8 +71,12 @@ describe("OrdersService", () => {
     });
 
     expect(service.listOrders()).toHaveLength(2);
-    expect(service.listOrdersByUserId(firstUser.id)).toHaveLength(1);
-    expect(service.listOrdersByUserId(secondUser.id)[0]?.total).toBe(200);
+
+    const grouped = service.listOrdersByUserIds([firstUser.id, secondUser.id, "missing"]);
+
+    expect(grouped.get(firstUser.id)).toHaveLength(1);
+    expect(grouped.get(secondUser.id)?.[0]?.total).toBe(200);
+    expect(grouped.get("missing")).toEqual([]);
   });
 
   it("rejects duplicated emails ignoring case", () => {
@@ -195,7 +199,7 @@ describe("OrdersService", () => {
     };
     const orders: OrdersRepositoryPort = {
       listOrders: () => [],
-      listOrdersByUserId: () => []
+      listOrdersByUserIds: () => new Map()
     };
     const service = new OrdersService(
       users,
