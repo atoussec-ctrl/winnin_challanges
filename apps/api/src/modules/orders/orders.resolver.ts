@@ -1,4 +1,5 @@
 import { Args, Mutation, Parent, Query, ResolveField, Resolver } from "@nestjs/graphql";
+import { OrdersByUserLoader } from "./loaders/orders-by-user.loader";
 import {
   CreateOrderInput,
   CreateProductInput,
@@ -11,7 +12,10 @@ import { OrdersService } from "./orders.service";
 
 @Resolver(() => UserModel)
 export class OrdersResolver {
-  public constructor(private readonly ordersService: OrdersService) {}
+  public constructor(
+    private readonly ordersService: OrdersService,
+    private readonly ordersByUserLoader: OrdersByUserLoader
+  ) {}
 
   @Query(() => [UserModel])
   public users(): UserModel[] {
@@ -28,9 +32,11 @@ export class OrdersResolver {
     return this.ordersService.listOrders();
   }
 
+  // Batched via DataLoader (OrdersByUserLoader): resolve todos os User.orders
+  // de uma query em uma unica chamada ao service, nao uma por usuario.
   @ResolveField("orders", () => [OrderModel])
-  public userOrders(@Parent() user: UserModel): OrderModel[] {
-    return this.ordersService.listOrdersByUserId(user.id);
+  public userOrders(@Parent() user: UserModel): Promise<OrderModel[]> {
+    return this.ordersByUserLoader.load(user.id);
   }
 
   @Mutation(() => UserModel)

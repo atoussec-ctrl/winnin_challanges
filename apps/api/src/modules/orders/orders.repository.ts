@@ -22,8 +22,28 @@ export class OrdersRepository implements OrderWriterPort, OrdersRepositoryPort {
     return [...this.orders.values()];
   }
 
-  public listOrdersByUserId(userId: string): readonly Order[] {
-    return [...this.orders.values()].filter((order) => order.userId === userId);
+  // Agrupa em uma unica varredura da colecao, independente de quantos ids
+  // forem pedidos - e o que permite ao DataLoader (orders-by-user.loader.ts)
+  // resolver o field resolver User.orders sem problema de N+1.
+  public listOrdersByUserIds(userIds: readonly string[]): ReadonlyMap<string, readonly Order[]> {
+    const requested = new Set(userIds);
+    const grouped = new Map<string, Order[]>();
+
+    for (const order of this.orders.values()) {
+      if (!requested.has(order.userId)) {
+        continue;
+      }
+
+      const bucket = grouped.get(order.userId);
+
+      if (bucket) {
+        bucket.push(order);
+      } else {
+        grouped.set(order.userId, [order]);
+      }
+    }
+
+    return grouped;
   }
 
   public snapshot(): OrdersSnapshot {

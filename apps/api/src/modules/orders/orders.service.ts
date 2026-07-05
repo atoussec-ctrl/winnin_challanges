@@ -40,8 +40,17 @@ export class OrdersService {
     return this.orders.listOrders().map((order) => this.toOrderModel(order));
   }
 
-  public listOrdersByUserId(userId: string): OrderModel[] {
-    return this.orders.listOrdersByUserId(userId).map((order) => this.toOrderModel(order));
+  // Uma unica chamada ao repositorio para todos os userIds pedidos - consumida
+  // pelo OrdersByUserLoader (DataLoader) para resolver User.orders sem N+1.
+  public listOrdersByUserIds(userIds: readonly string[]): ReadonlyMap<string, OrderModel[]> {
+    const grouped = this.orders.listOrdersByUserIds(userIds);
+    const result = new Map<string, OrderModel[]>();
+
+    for (const userId of userIds) {
+      result.set(userId, (grouped.get(userId) ?? []).map((order) => this.toOrderModel(order)));
+    }
+
+    return result;
   }
 
   public createUser(input: CreateUserInput): UserModel {

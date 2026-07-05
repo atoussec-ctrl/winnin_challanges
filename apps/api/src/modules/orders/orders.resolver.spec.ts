@@ -1,5 +1,6 @@
 import { CreateOrderUseCase } from "@desafio/domain";
 import { describe, expect, it } from "vitest";
+import { OrdersByUserLoader } from "./loaders/orders-by-user.loader";
 import { OrderUnitOfWork } from "./order-unit-of-work";
 import { OrdersRepository } from "./orders.repository";
 import { OrdersResolver } from "./orders.resolver";
@@ -17,7 +18,7 @@ function createResolver(): OrdersResolver {
     new CreateOrderUseCase(new OrderUnitOfWork(products, orders))
   );
 
-  return new OrdersResolver(service);
+  return new OrdersResolver(service, new OrdersByUserLoader(service));
 }
 
 describe("OrdersResolver", () => {
@@ -48,7 +49,7 @@ describe("OrdersResolver", () => {
       userId: user.id
     });
 
-    expect(resolver.userOrders(user)).toHaveLength(1);
-    expect(resolver.userOrders(other)).toHaveLength(0);
+    expect(await resolver.userOrders(user)).toHaveLength(1);
+    expect(await resolver.userOrders(other)).toHaveLength(0);
   });
 });
