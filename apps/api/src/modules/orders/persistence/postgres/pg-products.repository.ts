@@ -49,6 +49,18 @@ export class PgProductsRepository implements ProductsRepositoryPort {
     return rows[0] ? toStoredProduct(rows[0]) : undefined;
   }
 
+  // PERF-01: uma query para todos os ids pedidos, em vez de uma por item.
+  public async findProductsByIds(
+    productIds: readonly string[]
+  ): Promise<ReadonlyMap<string, StoredProduct>> {
+    const { rows } = await this.pool.query<ProductRow>(
+      "SELECT id, name, price_cents, stock, created_at FROM products WHERE id = ANY($1::text[])",
+      [productIds]
+    );
+
+    return new Map(rows.map((row) => [row.id, toStoredProduct(row)]));
+  }
+
   public async listProducts(): Promise<readonly StoredProduct[]> {
     const { rows } = await this.pool.query<ProductRow>(
       "SELECT id, name, price_cents, stock, created_at FROM products ORDER BY created_at, id"

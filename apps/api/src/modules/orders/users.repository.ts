@@ -22,6 +22,20 @@ export class UsersRepository implements UsersRepositoryPort {
     return Promise.resolve(this.users.get(userId));
   }
 
+  public findUsersByIds(userIds: readonly string[]): Promise<ReadonlyMap<string, StoredUser>> {
+    const found = new Map<string, StoredUser>();
+
+    for (const userId of userIds) {
+      const user = this.users.get(userId);
+
+      if (user) {
+        found.set(userId, user);
+      }
+    }
+
+    return Promise.resolve(found);
+  }
+
   public hasUserWithEmail(email: string): Promise<boolean> {
     const normalized = email.trim().toLowerCase();
     return Promise.resolve(

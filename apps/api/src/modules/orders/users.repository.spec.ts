@@ -36,4 +36,17 @@ describe("UsersRepository", () => {
 
     expect(await repository.listUsers()).toHaveLength(2);
   });
+
+  it("finds many users by id in a single lookup, skipping ids that do not exist (PERF-01)", async () => {
+    const repository = new UsersRepository();
+    const first = await repository.saveUser({ email: "a@example.com", name: "A" });
+    const second = await repository.saveUser({ email: "b@example.com", name: "B" });
+
+    const found = await repository.findUsersByIds([first.id, "missing", second.id]);
+
+    expect(found.size).toBe(2);
+    expect(found.get(first.id)).toEqual(first);
+    expect(found.get(second.id)).toEqual(second);
+    expect(found.get("missing")).toBeUndefined();
+  });
 });

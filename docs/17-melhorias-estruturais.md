@@ -86,7 +86,7 @@ GraphQL simultaneas (uma 200, outra `Conflict`).
 
 ## 2. Backend / performance
 
-### PERF-01 (P1) — N+1 na hidratacao de pedidos contra Postgres
+### PERF-01 (P1) — N+1 na hidratacao de pedidos contra Postgres — FEITO
 
 **Evidencia**: `OrdersService.toOrderModel` busca `findUserById` por pedido e
 `findProductById` por item. Contra o backend in-memory isso era um lookup de `Map`;
@@ -103,6 +103,12 @@ hidratacao interna do service.
 
 **Por que**: e o mesmo problema ja corrigido no resolver (P1 do relatorio 13), que
 reapareceu uma camada abaixo quando o repositorio passou a ter latencia real.
+
+**Feito**: implementada a opcao 1 — `findUsersByIds`/`findProductsByIds` nos ports
+(in-memory e Postgres via `= ANY($1)`); `toOrderModels` substitui `toOrderModel` e
+hidrata todos os pedidos com uma chamada em lote por porta. Comprovado com teste de
+integracao real: 10 pedidos, 3 usuarios e 3 produtos compartilhados executam sempre
+4 queries (orders + items + users + products), nao `1 + N + M`.
 
 ### BE-04 (P1) — Health check nao verifica dependencias — FEITO
 
@@ -231,7 +237,7 @@ escrita tem formas e cargas diferentes; nao antecipar antes de PERF-01 provar li
 | DB-01 | Banco | Indices nas FKs | P1 | FEITO |
 | DB-02 | Banco | CHECK constraints | P1 | FEITO |
 | DB-04 | Banco | 23505 -> 409 (race de email) | P1 | FEITO |
-| PERF-01 | Backend | N+1 de hidratacao contra Postgres | P1 | |
+| PERF-01 | Backend | N+1 de hidratacao contra Postgres | P1 | FEITO |
 | BE-04 | Backend | Readiness check com ping no banco | P1 | FEITO |
 | EST-02 | Estrutura | Config centralizada validada (SEC-03) | P1 | FEITO |
 | DB-03 | Banco | Migracoes versionadas | P2 | |

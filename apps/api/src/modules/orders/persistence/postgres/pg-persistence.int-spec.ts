@@ -1,6 +1,6 @@
 import { CreateOrderUseCase } from "@desafio/domain";
 import { Pool } from "pg";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { OrdersService } from "../../orders.service";
 import { PgOrderUnitOfWork } from "./pg-order-unit-of-work";
 import { PgOrdersRepository } from "./pg-orders.repository";
@@ -114,6 +114,40 @@ describe("Postgres persistence (integration)", () => {
 
     expect((await service.listProducts())[0]?.stock).toBe(1);
     expect(await service.listOrders()).toEqual([]);
+  });
+
+  // PERF-01: prova de que a hidratacao de usuario/produto e feita em lote, nao
+  // uma consulta por pedido - com 3 usuarios/produtos compartilhados por 10
+  // pedidos, um N+1 real geraria dezenas de queries; o numero fixo aqui
+  // (orders+items+users+products) e a evidencia direta contra a regressao.
+  it("executes a constant number of queries when listing orders, regardless of order count", async () => {
+    const userCount = 3;
+    const productCount = 3;
+    const orderCount = 10;
+
+    const users = await Promise.all(
+      Array.from({ length: userCount }, (_, index) =>
+        service.createUser({ email: `user${index}@example.com`, name: `User ${index}` })
+      )
+    );
+    const products = await Promise.all(
+      Array.from({ length: productCount }, (_, index) =>
+        service.createProduct({ name: `Product ${index}`, price: 10, stock: 1000 })
+      )
+    );
+
+    for (let index = 0; index < orderCount; index += 1) {
+      await service.createOrder({
+        items: [{ productId: products[index % productCount]!.id, quantity: 1 }],
+        userId: users[index % userCount]!.id
+      });
+    }
+
+    const querySpy = vi.spyOn(pool, "query");
+    const listed = await service.listOrders();
+
+    expect(listed).toHaveLength(orderCount);
+    expect(querySpy).toHaveBeenCalledTimes(4);
   });
 
   it("survives a restart: a fresh repository reads previously committed data", async () => {
