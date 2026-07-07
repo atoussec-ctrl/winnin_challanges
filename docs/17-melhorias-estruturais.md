@@ -104,7 +104,7 @@ hidratacao interna do service.
 **Por que**: e o mesmo problema ja corrigido no resolver (P1 do relatorio 13), que
 reapareceu uma camada abaixo quando o repositorio passou a ter latencia real.
 
-### BE-04 (P1) — Health check nao verifica dependencias
+### BE-04 (P1) — Health check nao verifica dependencias — FEITO
 
 **Evidencia**: `GET /health` responde `ok` mesmo com o Postgres fora do ar. O
 `docker-compose` usa esse endpoint como healthcheck — um container "saudavel" pode
@@ -118,7 +118,12 @@ para `/health/ready`.
 **Por que**: e o contrato padrao de orquestracao (K8s liveness/readiness); evita
 mandar trafego para instancia sem banco.
 
-### BE-05 (P3) — Pool do Postgres sem tuning por env
+**Feito**: `GET /health/ready` implementado; healthcheck do compose e os scripts de
+`start.ps1`/`start.sh` apontam para ele. Achado extra na verificacao ao vivo: o pool
+do `pg` derrubava o processo inteiro num erro de conexao ociosa (sem handler de
+`error`) - corrigido junto, ver `PgDatabase`.
+
+### BE-05 (P3) — Pool do Postgres sem tuning por env — FEITO
 
 **Evidencia**: `new Pool({ connectionString })` usa defaults (max 10, sem timeouts
 explicitos).
@@ -128,6 +133,9 @@ explicitos).
 
 **Por que**: tuning de producao sem rebuild; timeouts explicitos evitam requests
 pendurados quando o banco degrada.
+
+**Feito**: as 3 variaveis sao lidas via `ConfigService` (schema Zod com defaults);
+teste unitario prova que `Pool.options` reflete os valores configurados.
 
 ### OBS-01 (P2) — Correlation id nos logs
 
@@ -155,7 +163,7 @@ juntos), atualizando imports. A raiz do modulo fica so com borda GraphQL
 **Por que**: descobribilidade — quem procura "implementacoes de persistencia" encontra
 as duas no mesmo lugar; a raiz do modulo comunica arquitetura, nao detalhes.
 
-### EST-02 (P1) — Configuracao centralizada e validada (= SEC-03)
+### EST-02 (P1) — Configuracao centralizada e validada (= SEC-03) — FEITO
 
 **Evidencia**: `process.env` e lido em 4 lugares (`main.ts`, `app.module.ts`,
 `PgDatabase`, `orchestrator.factory.ts`), cada um com sua propria validacao (ou
@@ -167,6 +175,12 @@ injecao — nenhum `process.env` fora do modulo de config.
 
 **Por que**: elimina a classe de erro "env faltando descoberta em runtime no primeiro
 uso"; os validadores existentes provam o valor, falta unificar.
+
+**Feito**: `env.schema.ts` (Zod) + `ConfigModule.forRoot({ validate: loadEnv })`
+globais; os 4 pontos migraram para `ConfigService` injetado. A validacao de negocio
+que ja existia e ja era testada (CORS obrigatorio em producao, provider/chave de LLM
+compativel) continua onde estava — o schema novo cobre forma/tipo, nao duplica
+regra ja provada.
 
 ### EST-03 (P3) — `form-contract.ts` esta em `organisms/`
 
@@ -218,13 +232,13 @@ escrita tem formas e cargas diferentes; nao antecipar antes de PERF-01 provar li
 | DB-02 | Banco | CHECK constraints | P1 | FEITO |
 | DB-04 | Banco | 23505 -> 409 (race de email) | P1 | FEITO |
 | PERF-01 | Backend | N+1 de hidratacao contra Postgres | P1 | |
-| BE-04 | Backend | Readiness check com ping no banco | P1 | |
-| EST-02 | Estrutura | Config centralizada validada (SEC-03) | P1 | |
+| BE-04 | Backend | Readiness check com ping no banco | P1 | FEITO |
+| EST-02 | Estrutura | Config centralizada validada (SEC-03) | P1 | FEITO |
 | DB-03 | Banco | Migracoes versionadas | P2 | |
 | OBS-01 | Backend | Correlation id nos logs | P2 | |
 | EST-01 | Estrutura | persistence/in-memory simetrico | P2 | |
 | PAT-01 | Patterns | EmailAlreadyInUseError no dominio | P2 | FEITO |
 | PAT-02 | Patterns | Circuit breaker por provider | P2 | |
-| BE-05 | Backend | Tuning do pool por env | P3 | |
+| BE-05 | Backend | Tuning do pool por env | P3 | FEITO |
 | EST-03 | Estrutura | form-contract fora de organisms | P3 | |
 | PAT-03 | Patterns | Read model paginado | P3 | |
