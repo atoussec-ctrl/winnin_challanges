@@ -22,6 +22,19 @@ describe("ProductsRepository", () => {
     expect(await repository.listProducts()).toEqual([product]);
   });
 
+  it("finds many products by id in a single lookup, skipping ids that do not exist (PERF-01)", async () => {
+    const repository = new ProductsRepository();
+    const first = await repository.saveProduct({ name: "Keyboard", priceCents: 15_000, stock: 5 });
+    const second = await repository.saveProduct({ name: "Mouse", priceCents: 5_000, stock: 10 });
+
+    const found = await repository.findProductsByIds([first.id, "missing", second.id]);
+
+    expect(found.size).toBe(2);
+    expect(found.get(first.id)).toEqual(first);
+    expect(found.get(second.id)).toEqual(second);
+    expect(found.get("missing")).toBeUndefined();
+  });
+
   describe("as a ProductInventoryPort", () => {
     it("returns snapshots only for products that exist", async () => {
       const repository = new ProductsRepository();

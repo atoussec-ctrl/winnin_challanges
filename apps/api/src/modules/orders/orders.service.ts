@@ -39,8 +39,7 @@ export class OrdersService {
   }
 
   public async listOrders(): Promise<OrderModel[]> {
-    const orders = await this.orders.listOrders();
-    return Promise.all(orders.map((order) => this.toOrderModel(order)));
+    return this.toOrderModels(await this.orders.listOrders());
   }
 
   // Uma unica chamada ao repositorio para todos os userIds pedidos - consumida
@@ -49,12 +48,16 @@ export class OrdersService {
     userIds: readonly string[]
   ): Promise<ReadonlyMap<string, OrderModel[]>> {
     const grouped = await this.orders.listOrdersByUserIds(userIds);
+    const allOrders = userIds.flatMap((userId) => grouped.get(userId) ?? []);
+    const modelsByOrderId = new Map(
+      (await this.toOrderModels(allOrders)).map((model) => [model.id, model])
+    );
     const result = new Map<string, OrderModel[]>();
 
     for (const userId of userIds) {
       result.set(
         userId,
-        await Promise.all((grouped.get(userId) ?? []).map((order) => this.toOrderModel(order)))
+        (grouped.get(userId) ?? []).map((order) => modelsByOrderId.get(order.id)!)
       );
     }
 
@@ -98,7 +101,8 @@ export class OrdersService {
     // Erros de dominio (estoque insuficiente, produto inexistente etc.) sao
     // traduzidos globalmente pelo DomainErrorFilter (APP_FILTER), nao aqui.
     const order = await this.createOrderUseCase.execute(input);
-    return this.toOrderModel(order);
+    const [model] = await this.toOrderModels([order]);
+    return model!;
   }
 
   private toUserModel(user: StoredUser): UserModel {
@@ -120,16 +124,31 @@ export class OrdersService {
     };
   }
 
-  private async toOrderModel(order: Order): Promise<OrderModel> {
-    const user = await this.users.findUserById(order.userId);
+  // PERF-01: hidrata usuario/produtos de todos os pedidos com uma unica
+  // chamada em lote a cada porta (findUsersByIds/findProductsByIds), em vez
+  // de uma consulta por pedido/item - numero de queries constante,
+  // independente de N. Mesmo comportamento de erro de antes (usuario/produto
+  // ausente -> NotFound).
+  private async toOrderModels(orders: readonly Order[]): Promise<OrderModel[]> {
+    const userIds = [...new Set(orders.map((order) => order.userId))];
+    const productIds = [
+      ...new Set(orders.flatMap((order) => order.items.map((item) => item.productId)))
+    ];
 
-    if (!user) {
-      throw new NotFoundException(`User ${order.userId} was not found.`);
-    }
+    const [usersById, productsById] = await Promise.all([
+      this.users.findUsersByIds(userIds),
+      this.products.findProductsByIds(productIds)
+    ]);
 
-    const items = await Promise.all(
-      order.items.map(async (item) => {
-        const product = await this.products.findProductById(item.productId);
+    return orders.map((order) => {
+      const user = usersById.get(order.userId);
+
+      if (!user) {
+        throw new NotFoundException(`User ${order.userId} was not found.`);
+      }
+
+      const items = order.items.map((item) => {
+        const product = productsById.get(item.productId);
 
         if (!product) {
           throw new NotFoundException(`Product ${item.productId} was not found.`);
@@ -140,15 +159,15 @@ export class OrdersService {
           product: this.toProductModel(product),
           quantity: item.quantity
         };
-      })
-    );
+      });
 
-    return {
-      createdAt: order.createdAt,
-      id: order.id,
-      items,
-      total: order.totalCents / 100,
-      user: this.toUserModel(user)
-    };
+      return {
+        createdAt: order.createdAt,
+        id: order.id,
+        items,
+        total: order.totalCents / 100,
+        user: this.toUserModel(user)
+      };
+    });
   }
 }

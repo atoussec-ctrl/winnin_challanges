@@ -40,25 +40,29 @@ Aceite:
       confirmado com teste de integracao e verificacao ao vivo (duas mutations
       GraphQL concorrentes: uma 200, uma `Conflict`/409).
 
-## Milestone B - Leitura eficiente (PERF-01; prepara BE-03)
+## Milestone B - Leitura eficiente (PERF-01; prepara BE-03) — FEITO
 
 Tarefas:
 
-- [ ] Teste (unit, fake ports): `listOrders` com N pedidos chama `findUsersByIds` e
+- [x] Teste (unit, fake ports): `listOrders` com N pedidos chama `findUsersByIds` e
       `findProductsByIds` exatamente 1 vez cada.
-- [ ] Adicionar `findUsersByIds(ids)` / `findProductsByIds(ids)` as portas e as duas
+- [x] Adicionar `findUsersByIds(ids)` / `findProductsByIds(ids)` as portas e as duas
       implementacoes (in-memory: filtro de Map; Postgres: `= ANY($1)`).
-- [ ] Refatorar `toOrderModel` para `toOrderModels(orders[])` com hidratacao em lote;
+- [x] Refatorar `toOrderModel` para `toOrderModels(orders[])` com hidratacao em lote;
       manter comportamento de erro (usuario/produto ausente -> NotFound).
-- [ ] Teste de integracao: `listOrders` contra Postgres com 10 pedidos executa numero
+- [x] Teste de integracao: `listOrders` contra Postgres com 10 pedidos executa numero
       constante de queries (asserta via contador no pool ou log de queries).
 - [ ] (Se BE-03 entrar no ciclo) conexao Relay-style `first/after` reutilizando os
       mesmos batches.
 
 Aceite:
 
-- Listagem de pedidos faz numero constante de queries, independente de N.
-- Nenhuma mudanca de contrato GraphQL (mesma resposta de antes).
+- [x] Listagem de pedidos faz numero constante de queries, independente de N —
+      confirmado com teste de integracao real: 10 pedidos, 3 usuarios e 3 produtos
+      compartilhados executam sempre 4 queries (orders + items + users + products).
+- [x] Nenhuma mudanca de contrato GraphQL (mesma resposta de antes) — suite completa
+      de `order.models.spec.ts`/`orders.resolver.spec.ts` e a colecao Postman
+      continuam verdes sem alteracao.
 
 ## Milestone C - Configuracao e saude (EST-02/SEC-03, BE-04, BE-05) — FEITO
 
@@ -136,6 +140,6 @@ Aceite:
 
 1. ~~**A** (banco: indices, constraints, 409) — pequeno e P1.~~ FEITO.
 2. ~~**C** (config + readiness) — destrava operacao correta no compose/CI.~~ FEITO.
-3. **B** (hidratacao em lote) — performance com o banco real.
+3. ~~**B** (hidratacao em lote) — performance com o banco real.~~ FEITO.
 4. **E** (RAG) — maior gap funcional do desafio DATASCI.
 5. **D** e **F** conforme capacidade.

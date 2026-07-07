@@ -6,7 +6,7 @@ import {
   ValidationDomainError,
   type OrderUnitOfWorkPort
 } from "@desafio/domain";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { OrderUnitOfWork } from "./order-unit-of-work";
 import { OrdersRepository } from "./orders.repository";
 import { OrdersService } from "./orders.service";
@@ -77,6 +77,39 @@ describe("OrdersService", () => {
     expect(grouped.get(firstUser.id)).toHaveLength(1);
     expect(grouped.get(secondUser.id)?.[0]?.total).toBe(200);
     expect(grouped.get("missing")).toEqual([]);
+  });
+
+  it("hydrates all orders' users and products in a single batch call each, regardless of N (PERF-01)", async () => {
+    const users = new UsersRepository();
+    const products = new ProductsRepository();
+    const orders = new OrdersRepository();
+    const service = new OrdersService(
+      users,
+      products,
+      orders,
+      new CreateOrderUseCase(new OrderUnitOfWork(products, orders))
+    );
+    const firstUser = await service.createUser({ email: "first@example.com", name: "First" });
+    const secondUser = await service.createUser({ email: "second@example.com", name: "Second" });
+    const firstProduct = await service.createProduct({ name: "Keyboard", price: 100, stock: 5 });
+    const secondProduct = await service.createProduct({ name: "Mouse", price: 50, stock: 5 });
+    await service.createOrder({
+      items: [{ productId: firstProduct.id, quantity: 1 }],
+      userId: firstUser.id
+    });
+    await service.createOrder({
+      items: [{ productId: secondProduct.id, quantity: 1 }],
+      userId: secondUser.id
+    });
+
+    const findUsersByIds = vi.spyOn(users, "findUsersByIds");
+    const findProductsByIds = vi.spyOn(products, "findProductsByIds");
+
+    const listed = await service.listOrders();
+
+    expect(listed).toHaveLength(2);
+    expect(findUsersByIds).toHaveBeenCalledTimes(1);
+    expect(findProductsByIds).toHaveBeenCalledTimes(1);
   });
 
   it("rejects duplicated emails ignoring case", async () => {
@@ -184,12 +217,14 @@ describe("OrdersService", () => {
     };
     const users: UsersRepositoryPort = {
       findUserById: (userId) => Promise.resolve(userId === fakeUser.id ? fakeUser : undefined),
+      findUsersByIds: () => Promise.resolve(new Map()),
       hasUserWithEmail: () => Promise.resolve(false),
       listUsers: () => Promise.resolve([fakeUser]),
       saveUser: () => Promise.resolve(fakeUser)
     };
     const products: ProductsRepositoryPort = {
       findProductById: () => Promise.resolve(undefined),
+      findProductsByIds: () => Promise.resolve(new Map()),
       listProducts: () => Promise.resolve([]),
       saveProduct: (input): Promise<StoredProduct> =>
         Promise.resolve({
@@ -239,24 +274,28 @@ describe("OrdersService", () => {
 
   it("guards against missing users while mapping stored orders", async () => {
     const service = createService();
-    const mapOrder = (service as unknown as {
-      toOrderModel(order: {
-        createdAt: Date;
-        id: string;
-        items: readonly [];
-        totalCents: number;
-        userId: string;
-      }): Promise<unknown>;
-    }).toOrderModel.bind(service);
+    const mapOrders = (service as unknown as {
+      toOrderModels(
+        orders: readonly {
+          createdAt: Date;
+          id: string;
+          items: readonly [];
+          totalCents: number;
+          userId: string;
+        }[]
+      ): Promise<unknown>;
+    }).toOrderModels.bind(service);
 
     await expect(
-      mapOrder({
-        createdAt: new Date("2026-07-03T00:00:00.000Z"),
-        id: "order-1",
-        items: [],
-        totalCents: 0,
-        userId: "missing"
-      })
+      mapOrders([
+        {
+          createdAt: new Date("2026-07-03T00:00:00.000Z"),
+          id: "order-1",
+          items: [],
+          totalCents: 0,
+          userId: "missing"
+        }
+      ])
     ).rejects.toThrow("User missing was not found.");
   });
 
@@ -266,38 +305,42 @@ describe("OrdersService", () => {
       email: "user@example.com",
       name: "User"
     });
-    const mapOrder = (service as unknown as {
-      toOrderModel(order: {
-        createdAt: Date;
-        id: string;
-        items: readonly [
-          {
-            productId: string;
-            quantity: number;
-            subtotalCents: number;
-            unitPriceCents: number;
-          }
-        ];
-        totalCents: number;
-        userId: string;
-      }): Promise<unknown>;
-    }).toOrderModel.bind(service);
+    const mapOrders = (service as unknown as {
+      toOrderModels(
+        orders: readonly {
+          createdAt: Date;
+          id: string;
+          items: readonly [
+            {
+              productId: string;
+              quantity: number;
+              subtotalCents: number;
+              unitPriceCents: number;
+            }
+          ];
+          totalCents: number;
+          userId: string;
+        }[]
+      ): Promise<unknown>;
+    }).toOrderModels.bind(service);
 
     await expect(
-      mapOrder({
-        createdAt: new Date("2026-07-03T00:00:00.000Z"),
-        id: "order-1",
-        items: [
-          {
-            productId: "missing",
-            quantity: 1,
-            subtotalCents: 15000,
-            unitPriceCents: 15000
-          }
-        ],
-        totalCents: 15000,
-        userId: user.id
-      })
+      mapOrders([
+        {
+          createdAt: new Date("2026-07-03T00:00:00.000Z"),
+          id: "order-1",
+          items: [
+            {
+              productId: "missing",
+              quantity: 1,
+              subtotalCents: 15000,
+              unitPriceCents: 15000
+            }
+          ],
+          totalCents: 15000,
+          userId: user.id
+        }
+      ])
     ).rejects.toThrow("Product missing was not found.");
   });
 });

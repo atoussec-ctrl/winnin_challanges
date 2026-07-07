@@ -30,6 +30,22 @@ export class ProductsRepository implements ProductInventoryPort, ProductsReposit
     return Promise.resolve(this.products.get(productId));
   }
 
+  public findProductsByIds(
+    productIds: readonly string[]
+  ): Promise<ReadonlyMap<string, StoredProduct>> {
+    const found = new Map<string, StoredProduct>();
+
+    for (const productId of productIds) {
+      const product = this.products.get(productId);
+
+      if (product) {
+        found.set(productId, product);
+      }
+    }
+
+    return Promise.resolve(found);
+  }
+
   public listProducts(): Promise<readonly StoredProduct[]> {
     return Promise.resolve([...this.products.values()]);
   }

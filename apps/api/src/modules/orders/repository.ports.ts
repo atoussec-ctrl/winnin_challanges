@@ -22,6 +22,10 @@ export interface StoredProduct {
 export interface UsersRepositoryPort {
   saveUser(input: { readonly name: string; readonly email: string }): Promise<StoredUser>;
   findUserById(userId: string): Promise<StoredUser | undefined>;
+  // PERF-01: uma unica chamada para varios ids, usada na hidratacao em lote
+  // de OrderModel.user (ver OrdersService.toOrderModels) - evita 1 query por
+  // pedido.
+  findUsersByIds(userIds: readonly string[]): Promise<ReadonlyMap<string, StoredUser>>;
   hasUserWithEmail(email: string): Promise<boolean>;
   listUsers(): Promise<readonly StoredUser[]>;
 }
@@ -33,6 +37,8 @@ export interface ProductsRepositoryPort {
     readonly stock: number;
   }): Promise<StoredProduct>;
   findProductById(productId: string): Promise<StoredProduct | undefined>;
+  // PERF-01: mesma ideia de findUsersByIds, para OrderItemModel.product.
+  findProductsByIds(productIds: readonly string[]): Promise<ReadonlyMap<string, StoredProduct>>;
   listProducts(): Promise<readonly StoredProduct[]>;
 }
 

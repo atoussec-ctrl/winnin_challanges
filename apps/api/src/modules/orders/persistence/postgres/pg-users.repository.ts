@@ -62,6 +62,16 @@ export class PgUsersRepository implements UsersRepositoryPort {
     return rows[0] ? toStoredUser(rows[0]) : undefined;
   }
 
+  // PERF-01: uma query para todos os ids pedidos, em vez de uma por pedido.
+  public async findUsersByIds(userIds: readonly string[]): Promise<ReadonlyMap<string, StoredUser>> {
+    const { rows } = await this.pool.query<UserRow>(
+      "SELECT id, name, email, created_at FROM users WHERE id = ANY($1::text[])",
+      [userIds]
+    );
+
+    return new Map(rows.map((row) => [row.id, toStoredUser(row)]));
+  }
+
   public async hasUserWithEmail(email: string): Promise<boolean> {
     const { rowCount } = await this.pool.query(
       "SELECT 1 FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1",
